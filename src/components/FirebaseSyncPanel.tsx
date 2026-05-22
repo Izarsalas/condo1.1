@@ -9,7 +9,9 @@ import {
   AlertCircle, 
   Database, 
   User,
-  Chrome
+  Chrome,
+  Share2,
+  Copy
 } from "lucide-react";
 import { auth, googleProvider } from "../lib/firebase";
 import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
@@ -269,6 +271,48 @@ export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelP
                 }`}
               />
             </button>
+          </div>
+
+          {/* Enlace de Registro Único para Propietarios */}
+          <div className="p-5 bg-gradient-to-br from-blue-50/70 to-indigo-50/50 border border-blue-200/60 rounded-3xl space-y-3 shadow-inner text-left">
+            <div className="flex items-center gap-2 text-blue-700">
+              <Share2 size={16} className="text-blue-600 shrink-0" />
+              <span className="text-[11px] font-black uppercase tracking-wider">Tu Enlace de Registro Único</span>
+            </div>
+            <p className="text-[10px] font-bold text-slate-500 uppercase leading-relaxed">
+              Envía este enlace a tus propietarios para que registren sus datos de forma remota. Recibirás sus datos en tiempo real de manera sincronizada:
+            </p>
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/?register-owner=true&adminId=${firebaseUser.uid}`}
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-[10px] font-mono text-slate-700 select-all focus:outline-none shadow-sm focus:border-blue-300"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/?register-owner=true&adminId=${firebaseUser.uid}`);
+                  alert("¡Enlace copiado al portapapeles con éxito!");
+                }}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] text-white rounded-xl text-[9px] font-black uppercase tracking-widest shrink-0 transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+              >
+                <Copy size={12} />
+                Copiar
+              </button>
+            </div>
+            <div className="pt-2.5 border-t border-slate-200/60 flex flex-wrap gap-2">
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                  `Estimado propietario, por favor registre o actualice sus datos en nuestro sistema de administración de condominios ingresando en el siguiente enlace único:\n\n${window.location.origin}/?register-owner=true&adminId=${firebaseUser.uid}`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[9px] font-black uppercase tracking-wider text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 hover:scale-[1.01] px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all outline-none border border-emerald-200/50"
+              >
+                <span>Compartir por WhatsApp</span>
+              </a>
+            </div>
           </div>
 
           {/* Action Trigger Buttons */}

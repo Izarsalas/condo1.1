@@ -64,6 +64,7 @@ import {
   Type,
   Laptop,
   Sparkles,
+  Cloud,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -143,6 +144,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => storage.getCurrentUser());
   const [users, setUsers] = useState<AppUser[]>(() => storage.getUsers());
   const [pendingRegistrations, setPendingRegistrations] = useState<any[]>([]);
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [settingsSubTab, setSettingsSubTab] = useState<"ticket" | "income" | "expense" | "security" | "brand">("ticket");
   const [processedCount, setProcessedCount] = useState(0);
 
   useEffect(() => {
@@ -220,6 +223,7 @@ export default function App() {
     };
 
     const authUnsubscribe = auth.onAuthStateChanged((fbUser) => {
+      setFirebaseUser(fbUser);
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
@@ -1270,37 +1274,62 @@ export default function App() {
             </div>
           </div>
 
-          {(activeTab === "income" || activeTab === "expense") && (
-            <div className="flex gap-12">
-              <div className="text-right">
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">
-                  BALANCE GENERAL
-                </p>
-                <p className="text-xl font-black text-emerald-600 font-mono">
-                  RD$
-                  {stats.balance.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
+          <div className="flex items-center gap-6 print:hidden">
+            {(activeTab === "income" || activeTab === "expense") && (
+              <div className="flex gap-8 border-r border-[#f1f5f9] pr-6 mr-1">
+                <div className="text-right">
+                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">
+                    BALANCE GENERAL
+                  </p>
+                  <p className="text-sm font-black text-emerald-600 font-mono leading-none">
+                    RD$ {stats.balance.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">
+                    {activeTab === "income"
+                      ? "INGRESOS DEL MES"
+                      : "GASTOS DEL MES"}
+                  </p>
+                  <p
+                    className={`text-sm font-black font-mono leading-none ${activeTab === "income" ? "text-emerald-600" : "text-rose-600"}`}
+                  >
+                    RD$
+                    {(activeTab === "income"
+                      ? stats.income
+                      : stats.expense
+                    ).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">
-                  {activeTab === "income"
-                    ? "INGRESOS DEL MES"
-                    : "GASTOS DEL MES"}
-                </p>
-                <p
-                  className={`text-xl font-black font-mono ${activeTab === "income" ? "text-emerald-600" : "text-rose-600"}`}
-                >
-                  RD$
-                  {(activeTab === "income"
-                    ? stats.income
-                    : stats.expense
-                  ).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </p>
+            )}
+
+            {/* Cloud Sync Status/Trigger Pill Button */}
+            <button
+              onClick={() => {
+                setSettingsSubTab("security");
+                setActiveTab("settings");
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer shadow-sm select-none ${
+                firebaseUser
+                  ? "bg-emerald-50 border-emerald-200/60 text-emerald-800 hover:bg-emerald-100/50"
+                  : "bg-blue-50 border-blue-200/60 text-blue-800 hover:bg-blue-100/50"
+              }`}
+              title={firebaseUser ? `Conectado como ${firebaseUser.email}. Haz clic para gestionar la nube.` : "Haz clic para sincronizar y conectar con Firebase"}
+            >
+              <div className="relative flex items-center">
+                <Cloud size={15} className={firebaseUser ? "text-emerald-600" : "text-blue-600"} />
+                {firebaseUser && (
+                  <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                )}
               </div>
-            </div>
-          )}
+              <span className="text-[9px] font-black uppercase tracking-widest leading-none">
+                {firebaseUser ? "Nube Activa" : "Vincular Nube"}
+              </span>
+            </button>
+          </div>
         </header>
 
         {/* Content Area */}
@@ -1489,6 +1518,8 @@ export default function App() {
                     hideDeveloperName={hideDeveloperName}
                     setHideDeveloperName={setHideDeveloperName}
                     onSyncComplete={handleReloadFromLocalStorage}
+                    initialTab={settingsSubTab}
+                    onTabChange={setSettingsSubTab}
                   />
                 )}
                 {activeTab === "users" && currentUser && (
@@ -8472,6 +8503,8 @@ function SettingsView({
   hideDeveloperName,
   setHideDeveloperName,
   onSyncComplete,
+  initialTab = "ticket",
+  onTabChange,
 }: {
   categories: Category[];
   setCategories: any;
@@ -8488,10 +8521,25 @@ function SettingsView({
   hideDeveloperName: boolean;
   setHideDeveloperName: (hide: boolean) => void;
   onSyncComplete?: () => void;
+  initialTab?: "ticket" | "income" | "expense" | "security" | "brand";
+  onTabChange?: (tab: "ticket" | "income" | "expense" | "security" | "brand") => void;
 }) {
-  const [activeTab, setActiveTab] = useState<
+  const [activeTab, setActiveTabInternal] = useState<
     "ticket" | "income" | "expense" | "security" | "brand"
-  >("ticket");
+  >(initialTab);
+
+  const setActiveTab = (tab: "ticket" | "income" | "expense" | "security" | "brand") => {
+    setActiveTabInternal(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTabInternal(initialTab);
+    }
+  }, [initialTab]);
   const [newCatName, setNewCatName] = useState("");
   const [newConceptName, setNewConceptName] = useState("");
   const [selectedCatId, setSelectedCatId] = useState("");
