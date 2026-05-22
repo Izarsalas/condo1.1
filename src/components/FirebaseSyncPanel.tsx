@@ -130,6 +130,17 @@ O si prefieres Google Auth, autorízalo así:
         errorResponse = "La contraseña debe tener al menos 6 caracteres.";
       } else if (err.code === "auth/invalid-email") {
         errorResponse = "Por favor ingresa un correo electrónico válido.";
+      } else if (err.code === "auth/operation-not-allowed") {
+        const projectId = auth.app?.options?.projectId || "phrasal-portfolio-pszp9";
+        errorResponse = `⚠️ MÉTODO NO ACTIVADO: El registro de Correo/Contraseña aún está desactivado en tu proyecto de Firebase.
+Para activarlo de inmediato, sigue estos sencillos pasos:
+
+1. Haz clic aquí para ir al panel de autenticación:
+   https://console.firebase.google.com/project/${projectId}/authentication/providers
+2. Haz clic en el botón "Comenzar" (si es la primera vez que entras) o "Agregar nuevo proveedor".
+3. Selecciona "Correo electrónico y contraseña" (Email/Password).
+4. Activa la primera casilla (Habilitar) y haz clic en "Guardar".
+5. Regresa aquí y vuelve a intentar. ¡Listo!`;
       }
       
       setErrorMsg(errorResponse);
