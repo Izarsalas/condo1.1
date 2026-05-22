@@ -1,9 +1,10 @@
 {
-  "projectId": "condo1-ca3b0",
-  "appId": "1:688452449935:web:417405b66923abd8a3e2fa",
-  "apiKey": "AIzaSyDYGiXiFrgzEPDDB48BGBLjZNbUDz6gbvQ",
-  "authDomain": "condo1-ca3b0.firebaseapp.com",
-  "storageBucket": "condo1-ca3b0.firebasestorage.app",
-  "messagingSenderId": "688452449935",
-  "measurementId": "G-FYZDBEYT21"
+  "projectId": "phrasal-portfolio-pszp9",
+  "appId": "1:496954707581:web:bddd9cb2b6987bed596b14",
+  "apiKey": "AIzaSyDjXrBa8TXPOTyZOatuKImmqDEhKR82evU",
+  "authDomain": "phrasal-portfolio-pszp9.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-64c56e51-7f19-41ea-a55c-6383bb67b5c8",
+  "storageBucket": "phrasal-portfolio-pszp9.firebasestorage.app",
+  "messagingSenderId": "496954707581",
+  "measurementId": ""
 }

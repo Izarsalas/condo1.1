@@ -11,10 +11,21 @@ import {
   User,
   Chrome,
   Share2,
-  Copy
+  Copy,
+  Mail,
+  Lock,
+  UserPlus,
+  LogIn
 } from "lucide-react";
 import { auth, googleProvider } from "../lib/firebase";
-import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { 
+  signInWithPopup, 
+  signOut as fbSignOut, 
+  onAuthStateChanged, 
+  User as FirebaseUser,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from "firebase/auth";
 import { uploadToCloud, downloadFromCloud, getLocalStats, SyncStats } from "../lib/firebaseSync";
 
 interface FirebaseSyncPanelProps {
@@ -32,6 +43,12 @@ export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelP
     const rawVal = localStorage.getItem("condobill_auto_cloud_sync");
     return rawVal === null ? true : rawVal === "true";
   });
+
+  // Email and password form state
+  const [loginMethod, setLoginMethod] = useState<'google' | 'email'>('email'); // Default to email to help them instantly!
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const toggleAutoCloudSync = (enabled: boolean) => {
     localStorage.setItem("condobill_auto_cloud_sync", String(enabled));
@@ -68,15 +85,57 @@ export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelP
 
       if (isDomainError) {
         const currentHost = typeof window !== "undefined" ? window.location.hostname : "";
-        setErrorMsg(`⚠️ DOMINIO NO AUTORIZADO: Tu aplicación Firebase aún no sabe que este entorno de vista previa es seguro. Por favor, autorízalo:
+        setErrorMsg(`⚠️ DOMINIO NO AUTORIZADO: Tu aplicación Firebase aún no sabe que este entorno de vista previa es seguro.
+👉 SOLUCIÓN FÁCIL: Usa la pestaña "Correo y Contraseña" al lado para conectarte de inmediato SIN configurar nada en Firebase Console.
+
+O si prefieres Google Auth, autorízalo así:
 1. Ve a tu Firebase Console.
 2. Entra a 'Authentication' > pestaña 'Settings' > sección 'Authorized domains' (Dominios autorizados).
 3. Haz clic en 'Add domain' e ingresa: ${currentHost}
-4. Guarda los cambios y vuelve a hacer clic en Vincular.`);
+4. Guarda los cambios y vuelve a intentar.`);
       } else {
         setErrorMsg("No se pudo iniciar sesión con Google: " + (err.message || err.code || "Error desconocido"));
       }
       setSyncStatus('error');
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setErrorMsg("Completa todos los campos para continuar.");
+      setSyncStatus('error');
+      return;
+    }
+    
+    setErrorMsg("");
+    setSyncStatus('idle');
+    setAuthLoading(true);
+
+    try {
+      if (isRegistering) {
+        await createUserWithEmailAndPassword(auth, email.trim(), password);
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+      }
+    } catch (err: any) {
+      console.error("[Firebase Email Auth Error]", err);
+      let errorResponse = err.message || err.code || "Error desconocido";
+      
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        errorResponse = "Credenciales incorrectas. Verifica tu correo y contraseña, o marca 'Registrar nueva cuenta' si aún no tienes un usuario creado.";
+      } else if (err.code === "auth/email-already-in-use") {
+        errorResponse = "El correo ya está registrado. Intenta iniciar sesión en su lugar.";
+      } else if (err.code === "auth/weak-password") {
+        errorResponse = "La contraseña debe tener al menos 6 caracteres.";
+      } else if (err.code === "auth/invalid-email") {
+        errorResponse = "Por favor ingresa un correo electrónico válido.";
+      }
+      
+      setErrorMsg(errorResponse);
+      setSyncStatus('error');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -179,19 +238,130 @@ export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelP
 
       {/* Connection Logic & Login Form */}
       {!firebaseUser ? (
-        <div className="space-y-4">
-          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-            Conecte su cuenta de Google para respaldar todos los condominios, inquilinos, cobros de gas y reportes financieros. Una vez conectados en la nube, podrá descargar y continuar trabajando en cualquier otro dispositivo: computadora, tablet o teléfono.
-          </p>
+        <div className="space-y-5">
+          {/* Custom Tabs Selector */}
+          <div className="flex bg-slate-200/60 p-1 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMethod('email');
+                setErrorMsg("");
+                setSyncStatus('idle');
+              }}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer ${
+                loginMethod === 'email'
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Mail size={13} />
+              Correo y Contraseña (Fácil/Directo)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMethod('google');
+                setErrorMsg("");
+                setSyncStatus('idle');
+              }}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer ${
+                loginMethod === 'google'
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Chrome size={13} />
+              Google Sign-In
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={handleSignIn}
-            className="w-full py-4 px-6 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:scale-[1.01] cursor-pointer shadow-lg active:scale-95"
-          >
-            <Chrome className="w-5 h-5 text-blue-400 shrink-0" />
-            Vincular cuenta con Google Sign-In
-          </button>
+          {loginMethod === 'email' ? (
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                <strong className="text-blue-600 font-extrabold uppercase text-[9px] tracking-wider block mb-0.5">Súper fácil - Sin autorizar dominios:</strong>
+                Ingresa tus credenciales a continuación. Si aún no tienes un usuario creado, marca la casilla de <strong>Registrar nueva cuenta</strong> y la crearemos al instante usando tu correo.
+              </p>
+
+              <div className="space-y-2.5">
+                {/* Email input */}
+                <div>
+                  <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1.5 align-left">
+                    Correo Electrónico
+                  </label>
+                  <div className="relative flex items-center">
+                    <Mail size={14} className="absolute left-4 text-slate-400 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="ejemplo@correo.com"
+                      className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs text-slate-700 placeholder-slate-400 font-medium focus:outline-none focus:border-blue-500 shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Password input */}
+                <div>
+                  <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1.5 align-left">
+                    Contraseña de la Cloud (Mínimo 6 caracteres)
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock size={14} className="absolute left-4 text-slate-400 pointer-events-none" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      minLength={6}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Ingrese una contraseña"
+                      className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs text-slate-700 placeholder-slate-400 font-medium focus:outline-none focus:border-blue-500 shadow-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Mode Toggle Checkbox */}
+              <label className="flex items-center gap-2.5 p-3.5 bg-white/70 border border-slate-200/50 rounded-2xl cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isRegistering}
+                  onChange={(e) => setIsRegistering(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                />
+                <div className="text-left">
+                  <span className="block text-[10px] font-black uppercase text-slate-700 leading-none">Registrar nueva cuenta</span>
+                  <span className="block text-[8px] text-slate-400 font-bold uppercase tracking-tight mt-0.5">
+                    Actívalo para crear un nuevo usuario con este correo
+                  </span>
+                </div>
+              </label>
+
+              {/* Action Buttons */}
+              <button
+                type="submit"
+                className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-[1.01] cursor-pointer shadow-md active:scale-95"
+              >
+                {isRegistering ? <UserPlus size={15} /> : <LogIn size={15} />}
+                {isRegistering ? "Registrar usuario en la Nube" : "Iniciar Sesión en la Nube"}
+              </button>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                Si ya configuraste y agregaste el dominio de tu sistema condominial en Firebase Console, puedes usar un clic con tu cuenta de Google.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleSignIn}
+                className="w-full py-4 px-6 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:scale-[1.01] cursor-pointer shadow-lg active:scale-95"
+              >
+                <Chrome className="w-5 h-5 text-blue-400 shrink-0" />
+                Vincular cuenta con Google Sign-In
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
