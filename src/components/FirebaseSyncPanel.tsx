@@ -1,0 +1,323 @@
+import React, { useState, useEffect } from "react";
+import { 
+  Cloud, 
+  CloudUpload, 
+  CloudDownload, 
+  LogOut, 
+  RefreshCw, 
+  CheckCircle2, 
+  AlertCircle, 
+  Database, 
+  User,
+  Chrome
+} from "lucide-react";
+import { auth, googleProvider } from "../lib/firebase";
+import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { uploadToCloud, downloadFromCloud, getLocalStats, SyncStats } from "../lib/firebaseSync";
+
+interface FirebaseSyncPanelProps {
+  onSyncComplete: () => void;
+}
+
+export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelProps) {
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState("");
+  const [localStats, setLocalStats] = useState<SyncStats | null>(null);
+  const [autoCloudSync, setAutoCloudSync] = useState(() => {
+    const rawVal = localStorage.getItem("condobill_auto_cloud_sync");
+    return rawVal === null ? true : rawVal === "true";
+  });
+
+  const toggleAutoCloudSync = (enabled: boolean) => {
+    localStorage.setItem("condobill_auto_cloud_sync", String(enabled));
+    setAutoCloudSync(enabled);
+  };
+
+  // Load and subscribe to Firebase Auth states
+  useEffect(() => {
+    setLocalStats(getLocalStats());
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const refreshStats = () => {
+    setLocalStats(getLocalStats());
+  };
+
+  const handleSignIn = async () => {
+    setErrorMsg("");
+    setSyncStatus('idle');
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      console.error("[Firebase Signin Error]", err);
+      const isDomainError = 
+        err.code === "auth/unauthorized-domain" || 
+        (err.message && err.message.includes("unauthorized-domain")) ||
+        (err.message && err.message.includes("unauthorized"));
+
+      if (isDomainError) {
+        const currentHost = typeof window !== "undefined" ? window.location.hostname : "";
+        setErrorMsg(`⚠️ DOMINIO NO AUTORIZADO: Tu aplicación Firebase aún no sabe que este entorno de vista previa es seguro. Por favor, autorízalo:
+1. Ve a tu Firebase Console.
+2. Entra a 'Authentication' > pestaña 'Settings' > sección 'Authorized domains' (Dominios autorizados).
+3. Haz clic en 'Add domain' e ingresa: ${currentHost}
+4. Guarda los cambios y vuelve a hacer clic en Vincular.`);
+      } else {
+        setErrorMsg("No se pudo iniciar sesión con Google: " + (err.message || err.code || "Error desconocido"));
+      }
+      setSyncStatus('error');
+    }
+  };
+
+  const handleSignOut = async () => {
+    setErrorMsg("");
+    setSyncStatus('idle');
+    try {
+      await fbSignOut(auth);
+    } catch (err: any) {
+      setErrorMsg("Ocurrió un error al cerrar sesión.");
+      setSyncStatus('error');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!firebaseUser) return;
+    setSyncing(true);
+    setSyncStatus('idle');
+    setErrorMsg("");
+    try {
+      await uploadToCloud(firebaseUser.uid);
+      setSyncStatus('success');
+      refreshStats();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg("Error al respaldar datos en la nube. Verifica tu conexión.");
+      setSyncStatus('error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!firebaseUser) return;
+    
+    const confirmRestore = window.confirm(
+      "¿ESTÁS SEGURO? Descargar los datos de la nube REEMPLAZARÁ completamente los condominios, lecturas, ventas y productos de este dispositivo con los que tienes respaldados en la nube."
+    );
+    if (!confirmRestore) return;
+
+    setSyncing(true);
+    setSyncStatus('idle');
+    setErrorMsg("");
+    try {
+      const stats = await downloadFromCloud(firebaseUser.uid);
+      setSyncStatus('success');
+      refreshStats();
+      onSyncComplete(); // Trigger state refresh in App.tsx
+      alert(`¡Restauración exitosa! Se cargaron ${stats.condos} condominios y ${stats.transactions} transacciones desde la nube.`);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg("Error al descargar e importar los respaldos desde la nube.");
+      setSyncStatus('error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="p-8 bg-slate-50 border border-slate-200 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-slate-400">
+        <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+        <span className="text-[10px] font-black uppercase tracking-widest">Iniciando Servicios de Nube...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-6 sm:p-8 space-y-6 text-left relative overflow-hidden transition-all shadow-sm">
+      {/* Visual background gradient accent */}
+      <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-6 -mt-6 blur-xl pointer-events-none" />
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner">
+            <Cloud size={20} className={syncing ? "animate-bounce" : ""} />
+          </div>
+          <div>
+            <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider leading-none">
+              Sincronización en la Nube
+            </h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+              Firebase Cloud Database Sync
+            </p>
+          </div>
+        </div>
+        
+        {firebaseUser ? (
+          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Conectado
+          </span>
+        ) : (
+          <span className="px-3 py-1 bg-slate-200 text-slate-600 rounded-full text-[9px] font-black uppercase tracking-wider">
+            Solo Local
+          </span>
+        )}
+      </div>
+
+      {/* Connection Logic & Login Form */}
+      {!firebaseUser ? (
+        <div className="space-y-4">
+          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+            Conecte su cuenta de Google para respaldar todos los condominios, inquilinos, cobros de gas y reportes financieros. Una vez conectados en la nube, podrá descargar y continuar trabajando en cualquier otro dispositivo: computadora, tablet o teléfono.
+          </p>
+
+          <button
+            type="button"
+            onClick={handleSignIn}
+            className="w-full py-4 px-6 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:scale-[1.01] cursor-pointer shadow-lg active:scale-95"
+          >
+            <Chrome className="w-5 h-5 text-blue-400 shrink-0" />
+            Vincular cuenta con Google Sign-In
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Linked User Meta Detail */}
+          <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {firebaseUser.photoURL ? (
+                <img 
+                  src={firebaseUser.photoURL} 
+                  referrerPolicy="no-referrer"
+                  alt="Avatar" 
+                  className="w-10 h-10 rounded-full border border-slate-200"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center border border-slate-100">
+                  <User size={18} />
+                </div>
+              )}
+              <div className="text-left">
+                <p className="text-xs font-black text-slate-800">{firebaseUser.displayName}</p>
+                <p className="text-[10px] text-slate-400 font-bold tracking-tight">{firebaseUser.email}</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+              title="Cerrar sesión de Nube"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+
+          {/* Sync Stats Breakdown */}
+          {localStats && (
+            <div className="p-4 bg-slate-100/50 rounded-2xl space-y-3">
+              <div className="flex items-center gap-1.5 text-slate-500">
+                <Database size={12} />
+                <span className="text-[9px] font-black uppercase tracking-wider">Base de Datos de este Dispositivo</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200/65">
+                  <span className="block text-sm font-black text-slate-800 leading-none">{localStats.condos}</span>
+                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter mt-1 block">Condos</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200/65">
+                  <span className="block text-sm font-black text-slate-800 leading-none">{localStats.units}</span>
+                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter mt-1 block">Unidades</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200/65">
+                  <span className="block text-sm font-black text-slate-800 leading-none">{localStats.transactions}</span>
+                  <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter mt-1 block">Cobros/Gastos</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Background Auto Cloud Sync Toggle Setting */}
+          <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-4">
+            <div className="flex-1 text-left">
+              <span className="block text-xs font-black text-slate-800 uppercase tracking-tight">Sincronización en Tiempo Real</span>
+              <span className="block text-[10px] text-slate-400 font-bold leading-normal mt-0.5">
+                Al activar, todos tus cambios locales se guardan al instante y de forma continua en tu base de datos Firebase sin necesidad de guardados manuales.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleAutoCloudSync(!autoCloudSync)}
+              className={`w-12 h-6 rounded-full p-0.5 transition-all outline-none shrink-0 ${
+                autoCloudSync ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-slate-300'
+              } flex items-center relative cursor-pointer`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-250 ${
+                  autoCloudSync ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Action Trigger Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Upload to Cloud */}
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={handleUpload}
+              className="py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50"
+            >
+              <CloudUpload size={16} className={syncing ? "animate-spin" : ""} />
+              Respaldar en la Nube
+            </button>
+
+            {/* Download from Cloud */}
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={handleDownload}
+              className="py-4 px-6 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+            >
+              <CloudDownload size={16} />
+              Restaurar de la Nube
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sync State Status Message Feedbacks */}
+      {syncStatus === 'success' && (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
+          <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] font-black text-emerald-800 uppercase tracking-wider">¡Éxito en la Sincronización!</p>
+            <p className="text-[10px] text-slate-500 font-medium mt-0.5 leading-relaxed">Los datos locales se han acoplado y asegurado con la base de datos central en la nube correctamente.</p>
+          </div>
+        </div>
+      )}
+
+      {syncStatus === 'error' && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
+          <AlertCircle size={16} className="text-rose-500 shrink-0 mt-0.5" />
+          <div className="text-left w-full">
+            <p className="text-[10px] font-black text-rose-800 uppercase tracking-wider">Error de Transferencia</p>
+            <p className="text-[10px] text-slate-600 font-medium mt-1 leading-relaxed whitespace-pre-line select-all">{errorMsg}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

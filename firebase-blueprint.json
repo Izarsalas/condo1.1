@@ -1,0 +1,438 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and synchronization state",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Condominio": {
+      "title": "Condominio",
+      "description": "Condominium definition",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "photo": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "reminderStartDay": { "type": "number" }
+      },
+      "required": ["id", "name", "address", "createdAt"]
+    },
+    "Unidad": {
+      "title": "Unidad",
+      "description": "Appartment unit inside a condominium",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "numero": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "photo": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "email": { "type": "string" },
+        "maintenanceFee": { "type": "number" }
+      },
+      "required": ["id", "condominioId", "numero", "ownerName", "whatsapp"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Income or expense transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "type": { "type": "string", "enum": ["INCOME", "EXPENSE"] },
+        "category": { "type": "string" },
+        "concept": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "description": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "corteId": { "type": "string" }
+      },
+      "required": ["id", "condominioId", "type", "category", "concept", "amount", "date"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Transaction category definition",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["INCOME", "EXPENSE"] },
+        "isSystem": { "type": "boolean" }
+      },
+      "required": ["id", "name", "type"]
+    },
+    "Concept": {
+      "title": "Concept",
+      "description": "Transaction concept nested inside categories",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "name": { "type": "string" },
+        "isSystem": { "type": "boolean" }
+      },
+      "required": ["id", "categoryId", "name"]
+    },
+    "Tarea": {
+      "title": "Tarea",
+      "description": "Task for a condominium",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "title": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "dueDate": { "type": "string" }
+      },
+      "required": ["id", "condominioId", "title", "isCompleted"]
+    },
+    "Mantenimiento": {
+      "title": "Mantenimiento",
+      "description": "Maintenance service logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string" },
+        "frequency": { "type": "string", "enum": ["mensual", "trimestral", "anual", "unico"] }
+      },
+      "required": ["id", "condominioId", "description", "date", "frequency"]
+    },
+    "Reparacion": {
+      "title": "Reparacion",
+      "description": "Repair request status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["pendiente", "en_proceso", "completada"] }
+      },
+      "required": ["id", "condominioId", "description", "date", "status"]
+    },
+    "Conserje": {
+      "title": "Conserje",
+      "description": "Janitor schedule and info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "shift": { "type": "string" },
+        "photo": { "type": "string" }
+      },
+      "required": ["id", "condominioId", "name", "phone", "shift"]
+    },
+    "Proveedor": {
+      "title": "Proveedor",
+      "description": "Supplier contact information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "name": { "type": "string" },
+        "service": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["id", "condominioId", "name", "service", "phone"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "barcode": { "type": "string" },
+        "description": { "type": "string" },
+        "sellType": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "wholesalePrice": { "type": "number" },
+        "department": { "type": "string" },
+        "useInventory": { "type": "boolean" },
+        "currentStock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "image": { "type": "string" }
+      },
+      "required": ["id", "barcode", "description", "sellType", "costPrice", "salePrice", "wholesalePrice", "department", "useInventory", "currentStock", "minStock"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Billing sale invoice record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "subtotal": { "type": "number" },
+        "itbis": { "type": "number" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "clientName": { "type": "string" },
+        "notes": { "type": "string" },
+        "bank": { "type": "string" },
+        "reference": { "type": "string" },
+        "exchangeRate": { "type": "number" },
+        "usdAmount": { "type": "number" },
+        "corteId": { "type": "string" }
+      },
+      "required": ["id", "date", "subtotal", "itbis", "total", "paymentMethod"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Client directory details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "address": { "type": "string" },
+        "rnc": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "fullName", "whatsapp", "createdAt"]
+    },
+    "Quote": {
+      "title": "Quote",
+      "description": "Budget and quote items status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "subtotal": { "type": "number" },
+        "itbis": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendiente", "Facturado", "Vencido"] }
+      },
+      "required": ["id", "date", "clientId", "clientName", "subtotal", "itbis", "total", "status"]
+    },
+    "TicketSettings": {
+      "title": "TicketSettings",
+      "description": "POS receipt printer configuration values",
+      "type": "object",
+      "properties": {
+        "businessName": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "rnc": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "farewellMessage": { "type": "string" },
+        "printSize": { "type": "string" },
+        "typography": { "type": "string" },
+        "isBold": { "type": "boolean" },
+        "showLogo": { "type": "boolean" },
+        "openDrawer": { "type": "boolean" },
+        "fontSize": { "type": "number" }
+      },
+      "required": ["businessName", "address", "phone"]
+    },
+    "AppUser": {
+      "title": "AppUser",
+      "description": "Internal login permissions systems",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "passwordHash": { "type": "string" },
+        "cargo": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "username", "passwordHash", "cargo", "createdAt"]
+    },
+    "Empleado": {
+      "title": "Empleado",
+      "description": "Personnel/Staff information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "photo": { "type": "string" },
+        "role": { "type": "string" },
+        "areaId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "name", "phone", "role", "areaId", "createdAt"]
+    },
+    "AreaTrabajo": {
+      "title": "AreaTrabajo",
+      "description": "Work department definition",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "name", "createdAt"]
+    },
+    "Recibo": {
+      "title": "Recibo",
+      "description": "Financial printable invoice ticket voucher logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "saleId": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["ingreso", "egreso", "nomina", "venta", "pago_mantenimiento"] },
+        "sequence": { "type": "string" },
+        "concepto": { "type": "string" },
+        "monto": { "type": "number" },
+        "fecha": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "beneficiario": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "tipo", "sequence", "concepto", "monto", "fecha", "beneficiario", "createdAt"]
+    },
+    "CorteCaja": {
+      "title": "CorteCaja",
+      "description": "Daily sheet cash close balances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "salesCount": { "type": "number" },
+        "totalSales": { "type": "number" },
+        "totalOtherIncome: ": { "type": "number" },
+        "totalExpenses": { "type": "number" },
+        "totalCOGS": { "type": "number" },
+        "netProfit": { "type": "number" },
+        "notes": { "type": "string" },
+        "cashExpected": { "type": "number" },
+        "cashReported": { "type": "number" },
+        "difference": { "type": "number" },
+        "closedBy": { "type": "string" }
+      },
+      "required": ["id", "date", "salesCount", "totalSales", "totalExpenses", "netProfit", "cashExpected", "cashReported", "difference", "closedBy"]
+    },
+    "OwnerRegistration": {
+      "title": "Registro Propietario",
+      "description": "Public owner self-registration request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "condominioId": { "type": "string" },
+        "condominioName": { "type": "string" },
+        "numero": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "address": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "email": { "type": "string" },
+        "photo": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processed"] }
+      },
+      "required": ["id", "condominioId", "numero", "ownerName", "whatsapp", "createdAt", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Main user parent folder"
+    },
+    "/users/{userId}/condos/{condoId}": {
+      "schema": "Condominio",
+      "description": "Condos in user workspace"
+    },
+    "/users/{userId}/units/{unitId}": {
+      "schema": "Unidad",
+      "description": "Units in user workspace"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Transactions in user workspace"
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Categories in user workspace"
+    },
+    "/users/{userId}/concepts/{conceptId}": {
+      "schema": "Concept",
+      "description": "Concepts in user workspace"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Tarea",
+      "description": "Tasks in user workspace"
+    },
+    "/users/{userId}/maintenance/{maintenanceId}": {
+      "schema": "Mantenimiento",
+      "description": "Maintenance entries in user workspace"
+    },
+    "/users/{userId}/repairs/{repairId}": {
+      "schema": "Reparacion",
+      "description": "Repairs in user workspace"
+    },
+    "/users/{userId}/staff/{staffId}": {
+      "schema": "Conserje",
+      "description": "Staff in user workspace"
+    },
+    "/users/{userId}/suppliers/{supplierId}": {
+      "schema": "Proveedor",
+      "description": "Suppliers in user workspace"
+    },
+    "/users/{userId}/products/{productId}": {
+      "schema": "Product",
+      "description": "Products in user workspace"
+    },
+    "/users/{userId}/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Sales in user workspace"
+    },
+    "/users/{userId}/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Clients in user workspace"
+    },
+    "/users/{userId}/quotes/{quoteId}": {
+      "schema": "Quote",
+      "description": "Quotes in user workspace"
+    },
+    "/users/{userId}/ticketSettings/{settingId}": {
+      "schema": "TicketSettings",
+      "description": "POS settings in user workspace"
+    },
+    "/users/{userId}/appUsers/{uId}": {
+      "schema": "AppUser",
+      "description": "Internal login permissions profiles"
+    },
+    "/users/{userId}/employees/{employeeId}": {
+      "schema": "Empleado",
+      "description": "Salary payroll employees"
+    },
+    "/users/{userId}/workAreas/{areaId}": {
+      "schema": "AreaTrabajo",
+      "description": "Office or staff workspaces"
+    },
+    "/users/{userId}/receipts/{receiptId}": {
+      "schema": "Recibo",
+      "description": "Printable receipt history"
+    },
+    "/users/{userId}/cortes/{corteId}": {
+      "schema": "CorteCaja",
+      "description": "Reconciliation balance reports"
+    },
+    "/users/{userId}/owner_registrations/{registrationId}": {
+      "schema": "OwnerRegistration",
+      "description": "Public owner registration requests"
+    }
+  }
+}

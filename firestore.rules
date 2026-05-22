@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common safety primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Master Gate (User Isolation)
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /condos/{condoId} {
+        allow read: if true;
+        allow write: if isOwner(userId) && isValidId(condoId);
+      }
+
+      match /owner_registrations/{registrationId} {
+        allow create: if true;
+        allow read, write: if isOwner(userId) && isValidId(registrationId);
+      }
+
+      match /units/{unitId} {
+        allow read, write: if isOwner(userId) && isValidId(unitId);
+      }
+
+      match /transactions/{transactionId} {
+        allow read, write: if isOwner(userId) && isValidId(transactionId);
+      }
+
+      match /categories/{categoryId} {
+        allow read, write: if isOwner(userId) && isValidId(categoryId);
+      }
+
+      match /concepts/{conceptId} {
+        allow read, write: if isOwner(userId) && isValidId(conceptId);
+      }
+
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /maintenance/{maintenanceId} {
+        allow read, write: if isOwner(userId) && isValidId(maintenanceId);
+      }
+
+      match /repairs/{repairId} {
+        allow read, write: if isOwner(userId) && isValidId(repairId);
+      }
+
+      match /staff/{staffId} {
+        allow read, write: if isOwner(userId) && isValidId(staffId);
+      }
+
+      match /suppliers/{supplierId} {
+        allow read, write: if isOwner(userId) && isValidId(supplierId);
+      }
+
+      match /products/{productId} {
+        allow read, write: if isOwner(userId) && isValidId(productId);
+      }
+
+      match /sales/{saleId} {
+        allow read, write: if isOwner(userId) && isValidId(saleId);
+      }
+
+      match /clients/{clientId} {
+        allow read, write: if isOwner(userId) && isValidId(clientId);
+      }
+
+      match /quotes/{quoteId} {
+        allow read, write: if isOwner(userId) && isValidId(quoteId);
+      }
+
+      match /ticketSettings/{settingId} {
+        allow read, write: if isOwner(userId) && isValidId(settingId);
+      }
+
+      match /appUsers/{uId} {
+        allow read, write: if isOwner(userId) && isValidId(uId);
+      }
+
+      match /employees/{employeeId} {
+        allow read, write: if isOwner(userId) && isValidId(employeeId);
+      }
+
+      match /workAreas/{areaId} {
+        allow read, write: if isOwner(userId) && isValidId(areaId);
+      }
+
+      match /receipts/{receiptId} {
+        allow read, write: if isOwner(userId) && isValidId(receiptId);
+      }
+
+      match /cortes/{corteId} {
+        allow read, write: if isOwner(userId) && isValidId(corteId);
+      }
+    }
+  }
+}

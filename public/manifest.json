@@ -1,0 +1,23 @@
+{
+  "name": "CONDOBill - Gestión de Condominios",
+  "short_name": "CONDOBill",
+  "description": "Sistema de gestión financiera inteligente de condominios en República Dominicana.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=192&auto=format&fit=crop",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=512&auto=format&fit=crop",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

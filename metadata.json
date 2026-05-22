@@ -1,0 +1,8 @@
+{
+  "name": "Remix: condo-condo.1",
+  "description": "condo-condo.1",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
