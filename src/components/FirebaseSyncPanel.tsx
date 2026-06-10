@@ -15,7 +15,8 @@ import {
   Mail,
   Lock,
   UserPlus,
-  LogIn
+  LogIn,
+  Settings
 } from "lucide-react";
 import { auth, googleProvider } from "../lib/firebase";
 import { 
@@ -44,8 +45,27 @@ export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelP
     return rawVal === null ? true : rawVal === "true";
   });
 
+  // Custom Firebase configuration status check
+  const [customConfig, setCustomConfig] = useState<any>(() => {
+    const stored = localStorage.getItem("custom_firebase_config");
+    try {
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Custom Form fields with fallback from stored customConfig
+  const [customApiKey, setCustomApiKey] = useState(customConfig?.apiKey || "");
+  const [customAuthDomain, setCustomAuthDomain] = useState(customConfig?.authDomain || "");
+  const [customProjectId, setCustomProjectId] = useState(customConfig?.projectId || "");
+  const [customStorageBucket, setCustomStorageBucket] = useState(customConfig?.storageBucket || "");
+  const [customMessagingSenderId, setCustomMessagingSenderId] = useState(customConfig?.messagingSenderId || "");
+  const [customAppId, setCustomAppId] = useState(customConfig?.appId || "");
+  const [customDatabaseURL, setCustomDatabaseURL] = useState(customConfig?.databaseURL || "");
+
   // Email and password form state
-  const [loginMethod, setLoginMethod] = useState<'google' | 'email'>('email'); // Default to email to help them instantly!
+  const [loginMethod, setLoginMethod] = useState<'google' | 'email' | 'custom'>('email'); 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
@@ -53,6 +73,36 @@ export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelP
   const toggleAutoCloudSync = (enabled: boolean) => {
     localStorage.setItem("condobill_auto_cloud_sync", String(enabled));
     setAutoCloudSync(enabled);
+  };
+
+  const handleSaveCustomConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customApiKey || !customProjectId) {
+      alert("Por favor ingresa al menos la API Key y el Project ID.");
+      return;
+    }
+
+    const configToSave = {
+      apiKey: customApiKey.trim(),
+      authDomain: customAuthDomain.trim() || `${customProjectId.trim()}.firebaseapp.com`,
+      projectId: customProjectId.trim(),
+      storageBucket: customStorageBucket.trim() || `${customProjectId.trim()}.firebasestorage.app`,
+      messagingSenderId: customMessagingSenderId.trim(),
+      appId: customAppId.trim(),
+      databaseURL: customDatabaseURL.trim() || `https://${customProjectId.trim()}-default-rtdb.firebaseio.com`
+    };
+
+    localStorage.setItem("custom_firebase_config", JSON.stringify(configToSave));
+    alert("¡Configuración de Firebase guardada con éxito! La página se recargará para conectar usando tus credenciales...");
+    window.location.reload();
+  };
+
+  const handleClearCustomConfig = () => {
+    if (window.confirm("¿Estás seguro de que deseas eliminar tu configuración personalizada y regresar al entorno por defecto de la plataforma?")) {
+      localStorage.removeItem("custom_firebase_config");
+      alert("Se restableció la configuración. La página se recargará...");
+      window.location.reload();
+    }
   };
 
   // Load and subscribe to Firebase Auth states
@@ -114,18 +164,49 @@ O si prefieres Google Auth, autorízalo así:
 
     try {
       if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
+        try {
+          await createUserWithEmailAndPassword(auth, email.trim(), password);
+        } catch (regErr: any) {
+          if (regErr.code === "auth/email-already-in-use") {
+            console.log("[Firebase Auto-Fallback] El correo ya está registrado. Iniciando sesión...");
+            await signInWithEmailAndPassword(auth, email.trim(), password);
+          } else {
+            throw regErr;
+          }
+        }
       } else {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
+        try {
+          await signInWithEmailAndPassword(auth, email.trim(), password);
+        } catch (signInErr: any) {
+          if (
+            signInErr.code === "auth/user-not-found" || 
+            signInErr.code === "auth/invalid-credential" || 
+            signInErr.code === "auth/invalid-login-credentials" ||
+            signInErr.message?.includes("invalid-credential") ||
+            signInErr.message?.includes("user-not-found")
+          ) {
+            console.log("[Firebase Auto-Fallback] Usuario no encontrado. Creando nueva cuenta...");
+            try {
+              await createUserWithEmailAndPassword(auth, email.trim(), password);
+            } catch (regErr: any) {
+              if (regErr.code === "auth/email-already-in-use") {
+                throw new Error("Credenciales inválidas. Verifica tu correo y contraseña.");
+              }
+              throw regErr;
+            }
+          } else {
+            throw signInErr;
+          }
+        }
       }
     } catch (err: any) {
       console.error("[Firebase Email Auth Error]", err);
       let errorResponse = err.message || err.code || "Error desconocido";
       
-      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        errorResponse = "Credenciales incorrectas. Verifica tu correo y contraseña, o marca 'Registrar nueva cuenta' si aún no tienes un usuario creado.";
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential" || err.code === "auth/invalid-login-credentials") {
+        errorResponse = "Credenciales incorrectas. Verifica tu correo y contraseña o intenta con otra clave.";
       } else if (err.code === "auth/email-already-in-use") {
-        errorResponse = "El correo ya está registrado. Intenta iniciar sesión en su lugar.";
+        errorResponse = "El correo ya está registrado. Introduce la contraseña correcta para iniciar sesión.";
       } else if (err.code === "auth/weak-password") {
         errorResponse = "La contraseña debe tener al menos 6 caracteres.";
       } else if (err.code === "auth/invalid-email") {
@@ -251,7 +332,7 @@ Para activarlo de inmediato, sigue estos sencillos pasos:
       {!firebaseUser ? (
         <div className="space-y-5">
           {/* Custom Tabs Selector */}
-          <div className="flex bg-slate-200/60 p-1 rounded-2xl">
+          <div className="flex bg-slate-200/60 p-1 rounded-2xl flex-wrap gap-1 md:flex-nowrap">
             <button
               type="button"
               onClick={() => {
@@ -259,14 +340,30 @@ Para activarlo de inmediato, sigue estos sencillos pasos:
                 setErrorMsg("");
                 setSyncStatus('idle');
               }}
-              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer ${
+              className={`flex-1 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer rounded-xl ${
                 loginMethod === 'email'
                   ? "bg-white text-blue-700 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <Mail size={13} />
-              Correo y Contraseña (Fácil/Directo)
+              <Mail size={12} />
+              Iniciar Sesión
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMethod('custom');
+                setErrorMsg("");
+                setSyncStatus('idle');
+              }}
+              className={`flex-1 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer rounded-xl ${
+                loginMethod === 'custom'
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Settings size={12} />
+              Mi Propio Firebase
             </button>
             <button
               type="button"
@@ -275,13 +372,13 @@ Para activarlo de inmediato, sigue estos sencillos pasos:
                 setErrorMsg("");
                 setSyncStatus('idle');
               }}
-              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer ${
+              className={`flex-1 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all select-none cursor-pointer rounded-xl ${
                 loginMethod === 'google'
                   ? "bg-white text-blue-700 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <Chrome size={13} />
+              <Chrome size={12} />
               Google Sign-In
             </button>
           </div>
@@ -356,6 +453,100 @@ Para activarlo de inmediato, sigue estos sencillos pasos:
                 {isRegistering ? <UserPlus size={15} /> : <LogIn size={15} />}
                 {isRegistering ? "Registrar usuario en la Nube" : "Iniciar Sesión en la Nube"}
               </button>
+            </form>
+          ) : loginMethod === 'custom' ? (
+            <form onSubmit={handleSaveCustomConfig} className="space-y-4">
+              <div className="bg-amber-50 border border-amber-200/50 rounded-2xl p-4 text-[11px] text-amber-800 font-medium leading-relaxed">
+                <strong className="text-amber-900 font-extrabold block mb-1">CONECTA YA TU PROPIO PROYECTO DE FIREBASE:</strong>
+                Ingresa aquí las credenciales para conectar tu sistema directamente a tu proyecto (como <strong>condo1-ca3b0</strong>). Así podrás iniciar sesión con el correo y contraseña que registraste allí.
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-wider mb-1">ID de Proyecto (Project ID) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={customProjectId}
+                    onChange={(e) => setCustomProjectId(e.target.value)}
+                    placeholder="ej. condo1-ca3b0"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-wider mb-1">API Key *</label>
+                  <input
+                    type="text"
+                    required
+                    value={customApiKey}
+                    onChange={(e) => setCustomApiKey(e.target.value)}
+                    placeholder="Ingrese su API API Key de Firebase"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-wider mb-1">App ID</label>
+                  <input
+                    type="text"
+                    value={customAppId}
+                    onChange={(e) => setCustomAppId(e.target.value)}
+                    placeholder="ej. 1:12345:web:abcdef"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-wider mb-1">Auth Domain (Dominio Auth)</label>
+                  <input
+                    type="text"
+                    value={customAuthDomain}
+                    onChange={(e) => setCustomAuthDomain(e.target.value)}
+                    placeholder="ej. condo1-ca3b0.firebaseapp.com"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-wider mb-1">Storage Bucket</label>
+                  <input
+                    type="text"
+                    value={customStorageBucket}
+                    onChange={(e) => setCustomStorageBucket(e.target.value)}
+                    placeholder="ej. condo1-ca3b0.firebasestorage.app"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black uppercase text-slate-400 tracking-wider mb-1">Database URL (Opcional)</label>
+                  <input
+                    type="text"
+                    value={customDatabaseURL}
+                    onChange={(e) => setCustomDatabaseURL(e.target.value)}
+                    placeholder="ej. rtdb url"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-medium text-slate-700 focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md cursor-pointer text-center"
+                >
+                  Conectar Con Mi Firebase
+                </button>
+                {customConfig && (
+                  <button
+                    type="button"
+                    onClick={handleClearCustomConfig}
+                    className="py-3 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    Quitar Mi Configuración
+                  </button>
+                )}
+              </div>
+              
+              <p className="text-[9px] text-slate-400 font-bold uppercase leading-snug">
+                * Asegúrate de habilitar Cloud Firestore y el proveedor de Correo/Contraseña en Authentication en tu consola de Firebase.
+              </p>
             </form>
           ) : (
             <div className="space-y-4">

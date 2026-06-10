@@ -65,7 +65,10 @@ export function CalculatorView({ condos, units, onRegisterTransaction }: Calcula
   const [m3Value, setM3Value] = useState<string>('');
   const [appliedCurrentReading, setAppliedCurrentReading] = useState<string>('');
   const [appliedPreviousReading, setAppliedPreviousReading] = useState<string>('');
-  const gasConversionFactor = 1.2;
+  const [gasConversionFactor, setGasConversionFactor] = useState<number>(() => {
+    const saved = localStorage.getItem('gas_conversion_factor');
+    return saved ? parseFloat(saved) : 1.2;
+  });
 
   const [selectedRateId, setSelectedRateId] = useState<string>(rates[0]?.id || '');
   const [selectedCondoId, setSelectedCondoId] = useState<string>(condos[0]?.id || '');
@@ -192,6 +195,10 @@ export function CalculatorView({ condos, units, onRegisterTransaction }: Calcula
   useEffect(() => {
     localStorage.setItem('gas_calc_input_mode', gasInputMode);
   }, [gasInputMode]);
+
+  useEffect(() => {
+    localStorage.setItem('gas_conversion_factor', gasConversionFactor.toString());
+  }, [gasConversionFactor]);
 
   // Calculations
   const selectedRate = useMemo(() => 
@@ -1377,6 +1384,57 @@ _Generado automáticamente por CONDOBill RD_`;
                     </div>
                   ))}
                 </div>
+
+                <div className="h-px bg-slate-100 my-6" />
+
+                <div className="space-y-4 text-left">
+                  <div>
+                    <h5 className="text-[11px] font-black text-indigo-650 uppercase tracking-widest italic flex items-center gap-2">
+                      <SettingsIcon className="w-4 h-4 text-indigo-505" />
+                      <span>FACTOR DE CONVERSIÓN GLP (M³ A GLS)</span>
+                    </h5>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mt-1 leading-relaxed">
+                      Define cuántos galones de propano rinde un metro cúbico. Por defecto es 1.200 (parámetro estándar en República Dominicana).
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center font-black text-slate-600">
+                        m³
+                      </div>
+                      <div className="text-left">
+                        <p className="text-[12px] font-black text-slate-800 uppercase tracking-tighter">Multiplicador de Conversión</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">1 m³ = {gasConversionFactor.toFixed(3)} GLS</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                        <input 
+                          type="number"
+                          step="0.001"
+                          value={gasConversionFactor}
+                          onChange={e => {
+                            const val = parseFloat(e.target.value);
+                            setGasConversionFactor(isNaN(val) ? 0 : val);
+                          }}
+                          className="w-24 text-right font-black text-slate-800 focus:outline-none bg-transparent font-mono text-lg"
+                        />
+                        <span className="text-[11px] font-black text-slate-350 ml-3 uppercase tracking-widest">GLS</span>
+                      </div>
+                      
+                      {gasConversionFactor !== 1.2 && (
+                        <button 
+                          onClick={() => setGasConversionFactor(1.2)}
+                          className="px-4 py-3 bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                        >
+                          Restablecer (1.20)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.section>
           ) : (
@@ -1714,22 +1772,43 @@ _Generado automáticamente por CONDOBill RD_`;
 
                              <div className="w-full h-px bg-indigo-200/50 my-2" />
                              <div className="space-y-2">
-                               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Factor de Conversión GLP (Fijo 1.20)</span>
+                               <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">Factor de Conversión GLP (Modificable)</span>
                                <p className="text-[9px] text-slate-400 font-bold leading-relaxed uppercase tracking-tight">
-                                 Un metro cúbico (m³) rinde exactamente 1.20 galones de GLP. Este valor ha sido establecido como fijo y no editable.
+                                 Define cuántos galones de GLP rinde un metro cúbico (m³). Puedes modificar este valor a tu antojo según los parámetros de tu distribuidora.
                                </p>
-                               <div className="flex items-center gap-3.5 bg-white/75 backdrop-blur-sm p-4 rounded-2xl border border-indigo-100 shadow-sm mb-4">
+                               <div className="flex items-center gap-3.5 bg-white/75 backdrop-blur-sm p-4 rounded-2xl border border-indigo-150 shadow-sm mb-4">
                                  <div className="p-2 bg-indigo-50 text-indigo-650 rounded-xl shrink-0">
-                                   <Lock className="w-4 h-4" />
+                                   <SettingsIcon className="w-4 h-4" />
                                  </div>
-                                 <div className="text-left font-sans">
-                                   <p className="text-sm font-black text-slate-850 flex items-center gap-2">
-                                     <span>1.20</span> 
-                                     <span className="text-[9px] text-indigo-750 font-black uppercase tracking-widest bg-indigo-50/50 px-2 py-0.5 rounded-lg border border-indigo-100/50">
-                                       Establecido
-                                     </span>
-                                   </p>
-                                   <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-tight leading-normal mt-0.5">
+                                 <div className="text-left font-sans flex-1">
+                                   <div className="flex items-center gap-3">
+                                     <input
+                                       type="number"
+                                       step="0.001"
+                                       inputMode="decimal"
+                                       value={gasConversionFactor}
+                                       onChange={(e) => {
+                                         const val = parseFloat(e.target.value);
+                                         setGasConversionFactor(isNaN(val) ? 0 : val);
+                                       }}
+                                       className="w-24 bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-sm font-black text-slate-800 focus:outline-none focus:border-indigo-500 font-mono shadow-sm"
+                                     />
+                                     {gasConversionFactor !== 1.2 ? (
+                                       <button
+                                         type="button"
+                                         onClick={() => setGasConversionFactor(1.2)}
+                                         className="text-[9px] text-rose-600 hover:text-rose-700 font-black uppercase tracking-widest bg-rose-50 hover:bg-rose-100/80 px-2 py-1 rounded-lg border border-rose-150 transition-all cursor-pointer"
+                                         title="Restaurar factor por defecto (1.20)"
+                                       >
+                                         Restablecer (1.20)
+                                       </button>
+                                     ) : (
+                                       <span className="text-[9px] text-indigo-750 font-black uppercase tracking-widest bg-indigo-50/50 px-2 py-1 rounded-lg border border-indigo-100/50">
+                                         Por Defecto
+                                       </span>
+                                     )}
+                                   </div>
+                                   <p className="text-[9px] text-slate-405 font-extrabold uppercase tracking-tight leading-normal mt-1.5">
                                      Factor Oficial de Conversión m³ a GLS
                                    </p>
                                  </div>

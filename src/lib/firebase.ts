@@ -2,7 +2,24 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
-import firebaseConfig from '../../firebase-applet-config.json';
+import defaultFirebaseConfig from '../../firebase-applet-config.json';
+
+// Support custom client-defined Firebase projects so users can link their own console easily
+let firebaseConfig = defaultFirebaseConfig;
+if (typeof window !== 'undefined') {
+  try {
+    const customConfig = localStorage.getItem('custom_firebase_config');
+    if (customConfig) {
+      const parsed = JSON.parse(customConfig);
+      if (parsed && parsed.projectId) {
+        // Build active config combining defaults and custom overrides
+        firebaseConfig = { ...defaultFirebaseConfig, ...parsed };
+      }
+    }
+  } catch (err) {
+    console.error('[Firebase] Error al cargar configuración personalizada:', err);
+  }
+}
 
 const app = initializeApp(firebaseConfig);
 

@@ -5647,6 +5647,17 @@ function SalesView({
     );
   };
 
+  const updateCartItemPrice = (id: string, newPrice: number) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return { ...item, salePrice: Math.max(0, newPrice) };
+        }
+        return item;
+      }),
+    );
+  };
+
   const addCommonItem = () => {
     if (!commonName || !commonPrice) return;
     const price = parseFloat(commonPrice);
@@ -6060,9 +6071,24 @@ function SalesView({
                         >
                           <Plus size={7} />
                         </button>
-                        <span className="text-[7px] font-bold text-white/40 ml-0.5">
-                          x ${item.salePrice}
+                        <span className="text-[7px] font-bold text-white/40 ml-0.5 select-none">
+                          x
                         </span>
+                        <div className="flex items-center gap-0.5 ml-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/50 rounded-md px-1.5 py-0.5 transition-all">
+                          <span className="text-[7px] font-black text-emerald-400 font-mono">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.salePrice === 0 ? "" : item.salePrice}
+                            placeholder="0"
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              updateCartItemPrice(item.id, isNaN(val) ? 0 : val);
+                            }}
+                            className="w-12 bg-transparent text-white font-black text-[9px] outline-none border-none p-0 text-left font-mono focus:ring-0 focus:outline-none"
+                            title="Precio modificable"
+                          />
+                        </div>
                       </div>
                     </div>
                     <button
