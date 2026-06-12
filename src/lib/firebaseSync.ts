@@ -54,18 +54,57 @@ export function getLocalStats(): SyncStats {
 }
 
 /**
- * Upload active local storage data arrays to Firestore under the authenticated user's private space.
+ * Resolves the proper Firestore collection reference depending on if a Shared Group Key is set.
+ */
+export function getSyncCollectionRef(userId: string, colName: string) {
+  if (typeof window !== 'undefined') {
+    const sharedKey = localStorage.getItem('condobill_shared_group_key');
+    if (sharedKey && sharedKey.trim() !== '') {
+      return collection(db, 'shared_namespaces', sharedKey.trim().toLowerCase(), colName);
+    }
+  }
+  return collection(db, 'users', userId, colName);
+}
+
+/**
+ * Resolves the proper Firestore document reference depending on if a Shared Group Key is set.
+ */
+export function getSyncDocRef(userId: string, colName: string, docId: string) {
+  if (typeof window !== 'undefined') {
+    const sharedKey = localStorage.getItem('condobill_shared_group_key');
+    if (sharedKey && sharedKey.trim() !== '') {
+      return doc(db, 'shared_namespaces', sharedKey.trim().toLowerCase(), colName, docId);
+    }
+  }
+  return doc(db, 'users', userId, colName, docId);
+}
+
+/**
+ * Formats a clean path log string for error reporting
+ */
+export function getSyncPathLog(userId: string, colName: string): string {
+  if (typeof window !== 'undefined') {
+    const sharedKey = localStorage.getItem('condobill_shared_group_key');
+    if (sharedKey && sharedKey.trim() !== '') {
+      return `shared_namespaces/${sharedKey.trim().toLowerCase()}/${colName}`;
+    }
+  }
+  return `users/${userId}/${colName}`;
+}
+
+/**
+ * Upload active local storage data arrays to Firestore under the authenticated user's private space or shared group.
  */
 export async function uploadToCloud(userId: string): Promise<void> {
   const localData = storage.exportAllData();
 
   for (const [localStorageKey, syncMeta] of Object.entries(SYNC_MAP)) {
     const rawData = localData[localStorageKey];
-    const path = `users/${userId}/${syncMeta.colName}`;
+    const path = getSyncPathLog(userId, syncMeta.colName);
 
     try {
       // 1. Fetch existing documents from Firestore to delete them and write the new ones (mirror upload)
-      const colRef = collection(db, 'users', userId, syncMeta.colName);
+      const colRef = getSyncCollectionRef(userId, syncMeta.colName);
       const snapshot = await getDocs(colRef);
       
       // Delete existing
@@ -88,7 +127,7 @@ export async function uploadToCloud(userId: string): Promise<void> {
       // 2. Upload present local data
       if (syncMeta.isSingleDoc) {
         if (rawData) {
-          const docRef = doc(db, 'users', userId, syncMeta.colName, 'settings');
+          const docRef = getSyncDocRef(userId, syncMeta.colName, 'settings');
           await setDoc(docRef, rawData);
         }
       } else if (Array.isArray(rawData) && rawData.length > 0) {
@@ -98,7 +137,7 @@ export async function uploadToCloud(userId: string): Promise<void> {
         for (const item of rawData) {
           if (!item || !item.id) continue;
           
-          const docRef = doc(db, 'users', userId, syncMeta.colName, item.id);
+          const docRef = getSyncDocRef(userId, syncMeta.colName, item.id);
           batch.set(docRef, item);
           batchCount++;
 
@@ -126,17 +165,16 @@ export async function downloadFromCloud(userId: string): Promise<SyncStats> {
   const downloadedMap: Record<string, any> = {};
 
   for (const [localStorageKey, syncMeta] of Object.entries(SYNC_MAP)) {
-    const path = `users/${userId}/${syncMeta.colName}`;
+    const path = getSyncPathLog(userId, syncMeta.colName);
     try {
+      const colRef = getSyncCollectionRef(userId, syncMeta.colName);
+      const snapshot = await getDocs(colRef);
+
       if (syncMeta.isSingleDoc) {
-        const colRef = collection(db, 'users', userId, syncMeta.colName);
-        const snapshot = await getDocs(colRef);
         if (!snapshot.empty) {
           downloadedMap[localStorageKey] = snapshot.docs[0].data();
         }
       } else {
-        const colRef = collection(db, 'users', userId, syncMeta.colName);
-        const snapshot = await getDocs(colRef);
         const list: any[] = [];
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data());

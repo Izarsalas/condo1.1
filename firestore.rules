@@ -110,5 +110,14 @@ service cloud.firestore {
         allow read, write: if isOwner(userId) && isValidId(corteId);
       }
     }
+
+    // Collaborative Shared Space for Workgroups & Multi-User setups
+    match /shared_namespaces/{namespaceId} {
+      allow read, write: if isSignedIn() && isValidId(namespaceId);
+
+      match /{colName}/{docId} {
+        allow read, write: if isSignedIn() && isValidId(namespaceId) && isValidId(docId);
+      }
+    }
   }
 }

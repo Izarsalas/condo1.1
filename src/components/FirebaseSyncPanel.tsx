@@ -69,6 +69,9 @@ export default function FirebaseSyncPanel({ onSyncComplete }: FirebaseSyncPanelP
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
+  const [sharedGroupKey, setSharedGroupKey] = useState(() => {
+    return localStorage.getItem('condobill_shared_group_key') || "";
+  });
 
   const toggleAutoCloudSync = (enabled: boolean) => {
     localStorage.setItem("condobill_auto_cloud_sync", String(enabled));
@@ -331,6 +334,17 @@ Para activarlo de inmediato, sigue estos sencillos pasos:
       {/* Connection Logic & Login Form */}
       {!firebaseUser ? (
         <div className="space-y-5">
+          {/* Mensaje Informativo para el usuario sobre Multi-usuario */}
+          <div className="p-4 bg-indigo-50/70 border border-indigo-150 rounded-2xl text-left">
+            <p className="text-[10px] text-indigo-750 font-black uppercase tracking-wider flex items-center gap-1.5 mb-1">
+              <Database size={12} className="shrink-0 text-indigo-600" />
+              <span>Acceso Multi-usuario & Grupo Compartido</span>
+            </p>
+            <p className="text-[9.5px] text-slate-500 leading-relaxed font-semibold">
+              Para poder usar la sección de <strong>Grupo Compartido (Multi-usuario)</strong> y conectar múltiples dispositivos con la misma información, primero debes <strong>Iniciar Sesión</strong> o registrar una cuenta en la nube usando el formulario de abajo. ¡Es súper rápido!
+            </p>
+          </div>
+
           {/* Custom Tabs Selector */}
           <div className="flex bg-slate-200/60 p-1 rounded-2xl flex-wrap gap-1 md:flex-nowrap">
             <button
@@ -643,6 +657,66 @@ Para activarlo de inmediato, sigue estos sencillos pasos:
                 }`}
               />
             </button>
+          </div>
+
+          {/* Grupo de Trabajo Compartido (Multi-usuario) */}
+          <div className="p-5 bg-gradient-to-br from-indigo-50/70 to-purple-50/50 border border-indigo-200/50 rounded-[2rem] space-y-3.5 shadow-sm text-left">
+            <div className="flex items-center gap-2 text-indigo-700">
+              <Database size={16} className="text-indigo-600 shrink-0" />
+              <span className="text-[11px] font-black uppercase tracking-wider">Grupo Compartido (Multi-usuario)</span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+              ¿Quieres sincronizar varios dispositivos o permitir acceso a tus colaboradores? 
+              Establece un <strong>Código de Grupo Compartido</strong>. Todos los usuarios que inicien sesión y guarden este mismo código compartirán, editarán y verán la misma información en tiempo real.
+            </p>
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                placeholder="Ej. mi_condominio_2026"
+                value={sharedGroupKey}
+                onChange={(e) => {
+                  const cleanedValue = e.target.value.replace(/[^a-zA-Z0-9_\-]/g, ""); // Compliance with Firestore rules isValidId
+                  setSharedGroupKey(cleanedValue);
+                }}
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-[10px] font-mono text-slate-700 placeholder-slate-400 focus:outline-none shadow-sm focus:border-indigo-400"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const key = sharedGroupKey.trim();
+                  if (key === "") {
+                    localStorage.removeItem('condobill_shared_group_key');
+                    alert("Se eliminó el código. Volviendo a base de datos privada.");
+                  } else {
+                    localStorage.setItem('condobill_shared_group_key', key);
+                    alert(`¡Código "${key}" configurado! Los datos se sincronizarán en este grupo común.`);
+                  }
+                  refreshStats();
+                }}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.02] text-white rounded-xl text-[9px] font-black uppercase tracking-widest shrink-0 transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+              >
+                Guardar
+              </button>
+            </div>
+            {localStorage.getItem('condobill_shared_group_key') && (
+              <div className="flex items-center justify-between pt-1 border-t border-indigo-100/50 mt-1">
+                <span className="text-[8px] text-indigo-700 font-extrabold uppercase bg-indigo-100/60 px-2 py-0.5 rounded-md border border-indigo-200/50">
+                  Grupo Compartido ACTIVO: {localStorage.getItem('condobill_shared_group_key')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem('condobill_shared_group_key');
+                    setSharedGroupKey('');
+                    alert("Grupo compartido desactivado. Volviendo a tu espacio privado.");
+                    refreshStats();
+                  }}
+                  className="text-[8px] text-rose-600 hover:text-rose-700 font-black uppercase tracking-widest cursor-pointer"
+                >
+                  Desactivar
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Enlace de Registro Único para Propietarios */}
